@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juego de la Serpiente</title>
+    <title>Juego de la Serpiente Cósmica</title>
     <style>
         /* Fuente y estilos generales */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
@@ -26,7 +26,6 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            /* Nuevos colores para el espacio */
             border: 8px solid #9333ea; /* Borde púrpura */
             border-radius: 10px;
             box-shadow: 0 0 20px #9333ea, 0 0 40px rgba(147, 51, 234, 0.5);
@@ -67,6 +66,12 @@
             border: 1px solid #9333ea; /* Borde púrpura */
             border-radius: 8px;
         }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
 
         .instructions {
             text-align: center;
@@ -76,7 +81,7 @@
             font-weight: 400;
         }
 
-        /* Botón de reinicio */
+        /* Botones */
         button {
             background-color: #ccff00;
             color: #000000;
@@ -89,6 +94,17 @@
             border-radius: 8px;
             box-shadow: 0 4px #99cc00;
             transition: all 0.1s;
+        }
+        
+        #pauseButton {
+            background-color: #4f46e5;
+            color: #ffffff;
+            box-shadow: 0 4px #3730a3;
+        }
+        
+        #pauseButton:active {
+            box-shadow: 0 1px #3730a3;
+            transform: translateY(3px);
         }
 
         button:active {
@@ -139,7 +155,7 @@
 <body>
 
     <div class="game-container">
-        <h1>SNAKE CÓSMICA 🐍</h1>
+        <h1>NAVE PERSEGUIDA 🚀</h1>
         
         <div class="info-panel">
             <div class="score-display">Puntuación: <span id="score">0</span></div>
@@ -148,7 +164,10 @@
         
         <canvas id="gameCanvas" width="400" height="400"></canvas>
         
-        <button id="restartButton" onclick="startGame()">Reiniciar Juego</button>
+        <div class="controls">
+            <button id="restartButton" onclick="startGame()">Reiniciar</button>
+            <button id="pauseButton" onclick="togglePause()">Pausar</button>
+        </div>
         
         <div class="instructions">
             Controles: Flechas o W (Arriba), A (Izquierda), S (Abajo), D (Derecha)
@@ -158,8 +177,8 @@
     <!-- Modal de Fin de Juego -->
     <div id="gameOverModal" class="game-over-modal">
         <div class="modal-content">
-            <h2>¡FIN DEL JUEGO!</h2>
-            <p>Tu puntuación final fue: <span id="finalScore">0</span></p>
+            <h2>¡EXPLOSIÓN CÓSMICA!</h2>
+            <p>El misil te alcanzó. Tu puntuación final fue: <span id="finalScore">0</span></p>
             <button onclick="hideGameOverModal(); startGame()">Jugar de Nuevo</button>
         </div>
     </div>
@@ -173,14 +192,18 @@
         
         let snake = [];
         let food = {};
-        let bushes = []; // Obstáculos (ahora son rocas/asteroides)
+        let bushes = []; // Obstáculos (asteroides)
+        let missile = {}; // Misil perseguidor
+        
         let xVelocity = 0;
         let yVelocity = 0;
         let score = 0;
         let gameInterval;
         let baseSpeed = 100; // Velocidad base en ms
         let currentSpeed = baseSpeed;
+        
         let isGameRunning = false;
+        let isPaused = false; // Nuevo estado de pausa
         
         // Variables para el fondo de estrellas
         let stars = [];
@@ -191,6 +214,7 @@
         const levelElement = document.getElementById('level');
         const finalScoreElement = document.getElementById('finalScore');
         const gameOverModal = document.getElementById('gameOverModal');
+        const pauseButton = document.getElementById('pauseButton');
 
         // --- Inicialización y Bucle del Juego ---
 
@@ -214,56 +238,77 @@
             score = 0;
             currentSpeed = baseSpeed;
             isGameRunning = true;
+            isPaused = false;
+            pauseButton.textContent = 'Pausar';
 
-            // Inicializar estrellas
+            // Inicializar estrellas, comida, obstáculos y misil
             initStars();
+            generateFood();
+            generateBushes();
+            resetMissile();
 
             // Actualizar display
             scoreElement.textContent = score;
             levelElement.textContent = 1;
             hideGameOverModal();
 
-            // Generar comida inicial y obstáculos
-            generateFood();
-            generateBushes();
-
             // Limpiar y configurar el intervalo del juego
             if (gameInterval) clearInterval(gameInterval);
             gameInterval = setInterval(gameLoop, currentSpeed);
         }
-
-        function gameLoop() {
+        
+        function togglePause() {
             if (!isGameRunning) return;
 
-            // 1. Mover la cabeza de la serpiente
+            isPaused = !isPaused;
+            if (isPaused) {
+                clearInterval(gameInterval);
+                pauseButton.textContent = 'Reanudar';
+                
+                // Muestra un mensaje de Pausa en el centro
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#ccff00";
+                ctx.font = "30px Inter";
+                ctx.textAlign = "center";
+                ctx.fillText("PAUSA", canvas.width / 2, canvas.height / 2);
+                
+            } else {
+                gameInterval = setInterval(gameLoop, currentSpeed);
+                pauseButton.textContent = 'Pausar';
+            }
+        }
+
+        function gameLoop() {
+            if (!isGameRunning || isPaused) return;
+
+            // 1. Mover la nave (cabeza de la serpiente)
             let head = { x: snake[0].x + xVelocity, y: snake[0].y + yVelocity };
 
-            // 2. Comprobar y manejar la TELETRANSPORTACIÓN en los bordes
-            if (head.x < 0) {
-                head.x = tileCount - 1; 
-            } else if (head.x >= tileCount) {
-                head.x = 0; 
-            } else if (head.y < 0) {
-                head.y = tileCount - 1; 
-            } else if (head.y >= tileCount) {
-                head.y = 0; 
+            // 2. Manejar la TELETRANSPORTACIÓN en los bordes
+            if (head.x < 0) { head.x = tileCount - 1; 
+            } else if (head.x >= tileCount) { head.x = 0; 
+            } else if (head.y < 0) { head.y = tileCount - 1; 
+            } else if (head.y >= tileCount) { head.y = 0; 
             }
             
-            // 3. Comprobar colisiones después de la teletransportación
+            // 3. Comprobar colisiones
             if (
-                // Colisión consigo misma
-                checkSelfCollision(head) ||
-                // Colisión con rocas/asteroides
-                checkBushCollision(head) 
+                checkSelfCollision(head) ||        // Colisión consigo misma
+                checkBushCollision(head) ||        // Colisión con asteroides
+                checkMissileCollision(head)        // ¡Colisión con misil!
             ) {
                 endGame();
                 return;
             }
 
-            // 4. Insertar nueva cabeza
+            // 4. Mover el Misil Perseguidor
+            moveMissile();
+            
+            // 5. Insertar nueva cabeza
             snake.unshift(head);
 
-            // 5. Comprobar si come la comida
+            // 6. Comprobar si come la comida
             if (head.x === food.x && head.y === food.y) {
                 score++;
                 scoreElement.textContent = score;
@@ -274,13 +319,76 @@
                 snake.pop();
             }
 
-            // 6. Dibujar
+            // 7. Dibujar
             drawGame();
         }
 
         // --- Lógica del Juego ---
+        
+        // Coloca el misil lejos de la nave (al menos 10 celdas de distancia)
+        function resetMissile() {
+            const head = snake[0];
+            let newMissile;
+            let isTooClose;
+            
+            do {
+                isTooClose = false;
+                newMissile = {
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount)
+                };
+                
+                // Calcula la distancia Manhattan para asegurar que esté lejos
+                const distance = Math.abs(head.x - newMissile.x) + Math.abs(head.y - newMissile.y);
+                
+                if (distance < 10) {
+                    isTooClose = true;
+                }
+                
+            } while (isTooClose);
+            
+            missile = newMissile;
+        }
+        
+        // Mueve el misil persiguiendo a la nave
+        function moveMissile() {
+            const head = snake[0];
+            
+            // El misil solo se mueve en 1 de cada 4 ticks (ralentizado)
+            if (score > 0 && Math.floor(Date.now() / currentSpeed) % 3 === 0) { 
+                
+                let dx = 0;
+                let dy = 0;
 
-        // Genera posiciones para las rocas/asteroides
+                // Determinar la dirección de movimiento
+                if (head.x > missile.x) {
+                    dx = 1;
+                } else if (head.x < missile.x) {
+                    dx = -1;
+                } else if (head.y > missile.y) {
+                    dy = 1;
+                } else if (head.y < missile.y) {
+                    dy = -1;
+                }
+                
+                // Mueve el misil, priorizando la dirección horizontal o vertical aleatoriamente
+                if (Math.random() < 0.5 && dx !== 0) {
+                    missile.x += dx;
+                } else if (dy !== 0) {
+                    missile.y += dy;
+                } else if (dx !== 0) {
+                    missile.x += dx;
+                }
+                
+                // Manejar teletransportación del misil (si es necesario para el borde)
+                if (missile.x < 0) missile.x = tileCount - 1;
+                if (missile.x >= tileCount) missile.x = 0;
+                if (missile.y < 0) missile.y = tileCount - 1;
+                if (missile.y >= tileCount) missile.y = 0;
+            }
+        }
+
+        // Genera posiciones para los asteroides
         function generateBushes() {
             const numBushes = 8;
             bushes = [];
@@ -291,57 +399,42 @@
                 do {
                     isInvalidPosition = false;
                     
-                    // Generar posición aleatoria
                     newBush = {
                         x: Math.floor(Math.random() * tileCount),
                         y: Math.floor(Math.random() * tileCount)
                     };
 
-                    // Verificar que no se superponga con la serpiente inicial (o la comida)
-                    if (snake.some(segment => segment.x === newBush.x && segment.y === newBush.y)) {
+                    // Verificar colisiones con elementos iniciales
+                    if (snake.some(segment => segment.x === newBush.x && segment.y === newBush.y) ||
+                        (food.x === newBush.x && food.y === newBush.y) ||
+                        bushes.some(bush => bush.x === newBush.x && bush.y === newBush.y)) 
+                    {
                         isInvalidPosition = true;
-                        continue;
-                    }
-                    if (food.x === newBush.x && food.y === newBush.y) {
-                         isInvalidPosition = true;
-                        continue;
-                    }
-                    // Verificar que no se superponga con otros obstáculos ya generados
-                    if (bushes.some(bush => bush.x === newBush.x && bush.y === newBush.y)) {
-                        isInvalidPosition = true;
-                        continue;
                     }
 
                 } while (isInvalidPosition);
                 
-                // No necesita un tipo específico, ya que todos son rocas
                 bushes.push(newBush);
             }
         }
 
-        // Se usa para generar comida. Asegura que la comida no aparezca sobre la serpiente o un obstáculo.
+        // Genera comida asegurando que no aparezca sobre la nave, misil o asteroide.
         function generateFood() {
             let newFood;
             let isInvalidPosition;
             
             do {
                 isInvalidPosition = false;
-                // Generar posición aleatoria para la comida
                 newFood = {
                     x: Math.floor(Math.random() * tileCount),
                     y: Math.floor(Math.random() * tileCount)
                 };
 
-                // Comprobar que no aparezca sobre la serpiente
-                if (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y)) {
+                if (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) ||
+                    bushes.some(bush => bush.x === newFood.x && bush.y === newFood.y) ||
+                    (missile.x === newFood.x && missile.y === newFood.y)) 
+                {
                     isInvalidPosition = true;
-                    continue;
-                }
-                
-                // Comprobar que no aparezca sobre un obstáculo (roca)
-                if (bushes.some(bush => bush.x === newFood.x && bush.y === newFood.y)) {
-                    isInvalidPosition = true;
-                    continue;
                 }
                 
             } while (isInvalidPosition);
@@ -350,7 +443,6 @@
         }
 
         function checkSelfCollision(head) {
-            // Recorre el cuerpo (empezando por el segundo segmento, índice 1)
             for (let i = 1; i < snake.length; i++) {
                 if (head.x === snake[i].x && head.y === snake[i].y) {
                     return true;
@@ -359,9 +451,13 @@
             return false;
         }
         
-        // Comprueba si la cabeza de la serpiente colisiona con un obstáculo (roca)
         function checkBushCollision(head) {
             return bushes.some(bush => head.x === bush.x && head.y === bush.y);
+        }
+        
+        // Nueva comprobación de colisión con el misil
+        function checkMissileCollision(head) {
+            return head.x === missile.x && head.y === missile.y;
         }
 
         function increaseSpeed() {
@@ -393,7 +489,6 @@
         
         // --- Funciones de Dibujo ---
 
-        // Función para dibujar el fondo de estrellas
         function drawStars() {
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -406,8 +501,6 @@
             });
         }
 
-
-        // Función para dibujar la comida (objeto circular)
         function drawFood(centerX, centerY, color, shadowColor, radius, stemColor = null) {
             ctx.fillStyle = color;
             ctx.shadowColor = shadowColor;
@@ -424,7 +517,6 @@
             }
         }
         
-        // Función para dibujar una roca o asteroide (forma irregular gris)
         function drawRock(x, y) {
             // Color base y sombra de asteroide
             ctx.fillStyle = '#6b7280'; // Gris
@@ -455,32 +547,66 @@
             ctx.arc(x + gridSize * 0.7, y + gridSize * 0.6, gridSize * 0.15, 0, Math.PI * 2);
             ctx.fill();
         }
+        
+        // Nueva función para dibujar el misil
+        function drawMissile() {
+            const x = missile.x * gridSize;
+            const y = missile.y * gridSize;
+            const size = gridSize;
+            const halfSize = gridSize / 2;
+            
+            // 1. Dibuja el cuerpo (Rojo neón, forma de diamante/rombo)
+            ctx.fillStyle = '#ff3333';
+            ctx.shadowColor = '#ff6666';
+            ctx.shadowBlur = 12;
+
+            ctx.beginPath();
+            ctx.moveTo(x + halfSize, y); // Punta superior
+            ctx.lineTo(x + size, y + halfSize); // Punta derecha
+            ctx.lineTo(x + halfSize, y + size); // Punta inferior
+            ctx.lineTo(x, y + halfSize); // Punta izquierda
+            ctx.closePath();
+            ctx.fill();
+            
+            // 2. Dibuja el rastro de calor (propulsión)
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.9)'; // Amarillo
+            ctx.shadowBlur = 0;
+            
+            // Para simplificar, asumiremos que siempre persigue la cabeza y dibujamos el rastro hacia donde se movió.
+            // (Simplemente dibujaremos un pequeño cuadrado detrás)
+            ctx.fillRect(x + halfSize - 2, y + size, 4, 3);
+            ctx.fillRect(x + halfSize - 2, y - 3, 4, 3);
+            ctx.fillRect(x + size, y + halfSize - 2, 3, 4);
+            ctx.fillRect(x - 3, y + halfSize - 2, 3, 4);
+        }
 
 
         function drawGame() {
             // 1. Dibujar el fondo espacial (Limpia y dibuja estrellas)
             drawStars();
 
-            // 2. Dibujar los obstáculos (ROCAS / ASTEROIDES)
+            // 2. Dibujar los obstáculos (ASTEROIDES)
             bushes.forEach(bush => {
                 const x = bush.x * gridSize;
                 const y = bush.y * gridSize;
-                
-                // Usamos la función para dibujar la roca/asteroide
                 drawRock(x, y);
             });
             ctx.shadowBlur = 0; // Reset shadow
 
-            // 3. Dibujar la comida (Energía espacial)
+            // 3. Dibujar el misil perseguidor
+            drawMissile();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // 4. Dibujar la comida (Energía espacial)
             const FoodRadius = gridSize * 0.45;
             const FoodCenterX = food.x * gridSize + gridSize / 2;
             const FoodCenterY = food.y * gridSize + gridSize / 2;
 
-            drawFood(FoodCenterX, FoodCenterY, 'red', 'red', FoodRadius, '#4CAF50'); // Rojo brillante
+            drawFood(FoodCenterX, FoodCenterY, 'red', 'red', FoodRadius, '#4CAF50'); 
             ctx.shadowBlur = 0; // Reset shadow
 
 
-            // 4. Dibujar la serpiente (nave espacial y módulos de cuerpo)
+            // 5. Dibujar la nave espacial (cabeza y módulos de cuerpo)
             for (let i = 0; i < snake.length; i++) {
                 const x = snake[i].x * gridSize;
                 const y = snake[i].y * gridSize;
@@ -490,12 +616,11 @@
                     const halfGrid = gridSize / 2;
                     const quarterGrid = gridSize / 4;
                     
-                    // 1. Dibujar el Empuje/Thruster (Atrás de la nave)
-                    ctx.fillStyle = 'rgba(255, 136, 0, 0.8)'; // Fuego naranja/amarillo
+                    // 1. Dibujar el Empuje/Thruster (Atrás de la nave) - Fuego
+                    ctx.fillStyle = 'rgba(255, 136, 0, 0.8)'; 
                     ctx.shadowColor = '#FF8800';
                     ctx.shadowBlur = 10;
                     
-                    // Dibuja el efecto de propulsión fuera de la rejilla de la nave
                     if (xVelocity === 1) { // Derecha
                         ctx.fillRect(x - halfGrid, y + quarterGrid, halfGrid, halfGrid);
                     } else if (xVelocity === -1) { // Izquierda
@@ -506,19 +631,18 @@
                         ctx.fillRect(x + quarterGrid, y + gridSize, halfGrid, halfGrid);
                     }
                     
-                    // 2. Dibujar el Cuerpo Principal de la Nave (Rectangular - Verde brillante)
+                    // 2. Dibujar el Cuerpo Principal de la Nave 
                     ctx.fillStyle = '#ccff00'; // Color principal de la nave
                     ctx.shadowColor = '#00BFFF'; // Brillo azul de escudo
                     ctx.shadowBlur = 15;
                     ctx.fillRect(x, y, gridSize, gridSize);
                     
-                    // 3. Dibujar la Nariz/Cabina (Triangular, más oscura, para darle forma de punta)
-                    ctx.fillStyle = '#1e3a8a'; // Azul oscuro para la cabina
-                    ctx.shadowBlur = 0; // Quitar el brillo del nose
+                    // 3. Dibujar la Nariz/Cabina (Triangular)
+                    ctx.fillStyle = '#1e3a8a'; 
+                    ctx.shadowBlur = 0; 
                     
                     ctx.beginPath();
                     
-                    // Dibujo de la punta de la nave (Nariz/Cabina) según la dirección
                     if (xVelocity === 1) { // Derecha
                         ctx.moveTo(x + gridSize, y); 
                         ctx.lineTo(x + gridSize, y + gridSize); 
@@ -536,7 +660,6 @@
                         ctx.lineTo(x + gridSize, y); 
                         ctx.lineTo(x + halfGrid, y + halfGrid); 
                     } else {
-                        // Caso inicial (nave quieta antes del primer movimiento)
                         ctx.rect(x, y, gridSize, gridSize);
                     }
 
@@ -544,31 +667,33 @@
                     ctx.fill();
                     
                 } else {
-                    // DIBUJO DEL CUERPO (Vagones o Módulos Conectados)
-                    ctx.fillStyle = '#66cc33'; // Módulos del mismo color que la serpiente original
+                    // DIBUJO DEL CUERPO (Módulos Conectados)
+                    ctx.fillStyle = '#66cc33'; 
                     ctx.shadowColor = '#66cc33';
                     ctx.shadowBlur = 8;
                     
-                    // Dibuja el segmento con un pequeño margen para separarlo visualmente
                     ctx.fillRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
                     ctx.strokeStyle = '#1a1a1a';
                     ctx.strokeRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
                 }
                 
-                ctx.shadowBlur = 0; // Reset shadow para el siguiente elemento
+                ctx.shadowBlur = 0; // Reset shadow
             }
         }
 
         // --- Controles de Eventos ---
 
         document.addEventListener('keydown', (e) => {
-            if (!isGameRunning) return;
+            if (!isGameRunning || isPaused) return;
 
-            // Evitar que la serpiente se mueva instantáneamente en la dirección opuesta
+            // Evitar que la nave se mueva instantáneamente en la dirección opuesta
             const goingUp = yVelocity === -1;
             const goingDown = yVelocity === 1;
             const goingLeft = xVelocity === -1;
             const goingRight = xVelocity === 1;
+            
+            // Usamos un control para evitar el movimiento inmediato si no hay dirección aún
+            const isMoving = xVelocity !== 0 || yVelocity !== 0;
 
             switch (e.key) {
                 case 'ArrowUp':
@@ -602,6 +727,10 @@
                         xVelocity = 1;
                         yVelocity = 0;
                     }
+                    break;
+                case 'p':
+                case 'P':
+                    togglePause();
                     break;
             }
         });
