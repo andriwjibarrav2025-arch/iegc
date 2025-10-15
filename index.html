@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de la Serpiente</title>
+    <style>
+        /* Fuente y estilos generales */
+        /* Cambiamos a Inter, una fuente moderna y limpia */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a1a;
+            color: #ccff00; /* Color verde neón */
+            font-family: 'Inter', sans-serif; /* Usamos la fuente moderna */
+            padding: 20px;
+        }
+
+        /* Contenedor principal del juego */
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 8px solid #60a5fa; /* Borde azul claro */
+            border-radius: 10px;
+            box-shadow: 0 0 20px #60a5fa, 0 0 40px rgba(96, 165, 250, 0.5);
+            background-color: #000000;
+            padding: 20px;
+        }
+
+        /* Título */
+        h1 {
+            font-weight: 900; /* Inter Black */
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+
+        /* Pantalla de juego (Canvas) */
+        canvas {
+            background-color: #1e3a8a; /* Fondo azul oscuro solicitado */
+            border: 3psolid #3b82f6; /* Borde azul */
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        /* Marcador e Instrucciones */
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 15px;
+            font-size: 16px; /* Aumentamos el tamaño para mejor lectura */
+            font-weight: 700;
+        }
+        
+        .score-display, .level-display {
+            padding: 8px 15px;
+            background-color: #333333;
+            border-radius: 5px;
+            border: 1px solid #60a5fa;
+            /* Le damos esquinas más redondeadas a los marcadores */
+            border-radius: 8px;
+        }
+
+        .instructions {
+            text-align: center;
+            font-size: 14px;
+            margin-top: 15px;
+            color: #999999;
+            font-weight: 400;
+        }
+
+        /* Botón de reinicio */
+        button {
+            background-color: #ccff00;
+            color: #000000;
+            border: none;
+            padding: 12px 24px;
+            font-family: 'Inter', sans-serif; /* Usamos la fuente moderna */
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px; /* Más redondeado */
+            box-shadow: 0 4px #99cc00;
+            transition: all 0.1s;
+        }
+
+        button:active {
+            box-shadow: 0 1px #99cc00;
+            transform: translateY(3px);
+        }
+
+        /* Mensaje de Fin de Juego (Modal) */
+        .game-over-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: none; /* Se oculta por defecto */
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background-color: #000000;
+            border: 5px solid #ff3333;
+            padding: 40px;
+            text-align: center;
+            border-radius: 10px;
+            box-shadow: 0 0 30px #ff3333;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .modal-content h2 {
+            color: #ff3333;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 900;
+        }
+
+        .modal-content p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            color: #ffffff;
+            font-weight: 400;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>SNAKE 🐍</h1>
+        
+        <div class="info-panel">
+            <div class="score-display">Puntuación: <span id="score">0</span></div>
+            <div class="level-display">Velocidad: <span id="level">1</span></div>
+        </div>
+        
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        
+        <button id="restartButton" onclick="startGame()">Reiniciar Juego</button>
+        
+        <div class="instructions">
+            Controles: Flechas o W (Arriba), A (Izquierda), S (Abajo), D (Derecha)
+        </div>
+    </div>
+
+    <!-- Modal de Fin de Juego -->
+    <div id="gameOverModal" class="game-over-modal">
+        <div class="modal-content">
+            <h2>¡FIN DEL JUEGO!</h2>
+            <p>Tu puntuación final fue: <span id="finalScore">0</span></p>
+            <button onclick="hideGameOverModal(); startGame()">Jugar de Nuevo</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Variables del Juego ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gridSize = 20; // Tamaño de cada celda (20x20 píxeles)
+        const tileCount = canvas.width / gridSize; // 20x20 celdas
+        
+        let snake = [];
+        let food = {};
+        let bushes = []; // Nuevo: Array para almacenar los obstáculos (arbustos)
+        let xVelocity = 0;
+        let yVelocity = 0;
+        let score = 0;
+        let gameInterval;
+        let baseSpeed = 100; // Velocidad base en ms
+        let currentSpeed = baseSpeed;
+        let isGameRunning = false;
+
+        // Referencias del DOM
+        const scoreElement = document.getElementById('score');
+        const levelElement = document.getElementById('level');
+        const finalScoreElement = document.getElementById('finalScore');
+        const gameOverModal = document.getElementById('gameOverModal');
+
+        // --- Inicialización y Bucle del Juego ---
+
+        function startGame() {
+            // Reiniciar variables
+            snake = [{ x: 10, y: 10 }]; // La serpiente empieza en el centro
+            xVelocity = 0;
+            yVelocity = 0;
+            score = 0;
+            currentSpeed = baseSpeed;
+            isGameRunning = true;
+
+            // Actualizar display
+            scoreElement.textContent = score;
+            levelElement.textContent = 1;
+            hideGameOverModal();
+
+            // Generar comida inicial y obstáculos
+            generateFood();
+            generateBushes(); // Nuevo: Generar arbustos
+
+            // Limpiar y configurar el intervalo del juego
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, currentSpeed);
+        }
+
+        function gameLoop() {
+            if (!isGameRunning) return;
+
+            // 1. Mover la cabeza de la serpiente
+            let head = { x: snake[0].x + xVelocity, y: snake[0].y + yVelocity };
+
+            // 2. Comprobar colisiones
+            if (
+                // Colisión con los bordes
+                head.x < 0 || head.x >= tileCount ||
+                head.y < 0 || head.y >= tileCount ||
+                // Colisión consigo misma
+                checkSelfCollision(head) ||
+                // Nuevo: Colisión con arbustos
+                checkBushCollision(head) 
+            ) {
+                endGame();
+                return;
+            }
+
+            // 3. Insertar nueva cabeza
+            snake.unshift(head);
+
+            // 4. Comprobar si come la comida
+            if (head.x === food.x && head.y === food.y) {
+                score++;
+                scoreElement.textContent = score;
+                generateFood();
+                increaseSpeed();
+            } else {
+                // Si no comió, quita la cola (movimiento normal)
+                snake.pop();
+            }
+
+            // 5. Dibujar
+            drawGame();
+        }
+
+        // --- Lógica del Juego ---
+
+        // Nuevo: Genera posiciones para los arbustos (obstáculos)
+        function generateBushes() {
+            const numBushes = 8;
+            bushes = [];
+            
+            for (let i = 0; i < numBushes; i++) {
+                let newBush;
+                let isInvalidPosition;
+                do {
+                    isInvalidPosition = false;
+                    // Generar posición aleatoria
+                    newBush = {
+                        x: Math.floor(Math.random() * tileCount),
+                        y: Math.floor(Math.random() * tileCount)
+                    };
+
+                    // Verificar que no se superponga con la serpiente inicial (o la comida)
+                    if (newBush.x === snake[0].x && newBush.y === snake[0].y) {
+                        isInvalidPosition = true;
+                        continue;
+                    }
+                    if (food.x === newBush.x && food.y === newBush.y) {
+                         isInvalidPosition = true;
+                        continue;
+                    }
+                    // Verificar que no se superponga con otros arbustos ya generados
+                    if (bushes.some(bush => bush.x === newBush.x && bush.y === newBush.y)) {
+                        isInvalidPosition = true;
+                        continue;
+                    }
+
+                } while (isInvalidPosition);
+                
+                bushes.push(newBush);
+            }
+        }
+
+        // Se usa para generar comida. Asegura que la comida no aparezca sobre la serpiente o un arbusto.
+        function generateFood() {
+            let newFood;
+            let isInvalidPosition;
+            
+            do {
+                isInvalidPosition = false;
+                // Generar posición aleatoria para la comida
+                newFood = {
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount)
+                };
+
+                // Comprobar que no aparezca sobre la serpiente
+                if (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y)) {
+                    isInvalidPosition = true;
+                    continue;
+                }
+                
+                // Comprobar que no aparezca sobre un arbusto
+                if (bushes.some(bush => bush.x === newFood.x && bush.y === newFood.y)) {
+                    isInvalidPosition = true;
+                    continue;
+                }
+                
+            } while (isInvalidPosition);
+
+            food = newFood;
+        }
+
+        function checkSelfCollision(head) {
+            // Recorre el cuerpo (empezando por el segundo segmento, índice 1)
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Nuevo: Comprueba si la cabeza de la serpiente colisiona con un arbusto
+        function checkBushCollision(head) {
+            return bushes.some(bush => head.x === bush.x && head.y === bush.y);
+        }
+
+        function increaseSpeed() {
+            // Aumenta la velocidad (disminuyendo el intervalo) cada 5 puntos
+            const level = Math.floor(score / 5) + 1;
+            levelElement.textContent = level;
+
+            const newSpeed = baseSpeed - (level - 1) * 8; // Reduce 8ms por nivel
+            
+            // Si la velocidad ha cambiado, reinicia el intervalo
+            if (newSpeed < currentSpeed) {
+                currentSpeed = Math.max(20, newSpeed); // Velocidad mínima de 20ms
+                clearInterval(gameInterval);
+                gameInterval = setInterval(gameLoop, currentSpeed);
+            }
+        }
+
+        function endGame() {
+            isGameRunning = false;
+            clearInterval(gameInterval);
+            
+            finalScoreElement.textContent = score;
+            showGameOverModal();
+            
+            // Muestra el mensaje de Game Over en el canvas por un momento
+            ctx.fillStyle = "rgba(255, 51, 51, 0.7)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        // --- Funciones de Dibujo ---
+
+        function drawGame() {
+            // 1. Limpiar la pantalla (FONDO AZUL)
+            ctx.fillStyle = '#1e3a8a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Dibujar los arbustos (OBSTÁCULOS VERDES con TEXTURA)
+            const BUSH_BASE_COLOR = '#059669'; // Verde oscuro/bosque
+            const BUSH_TEXTURE_COLOR = '#047857'; // Verde aún más oscuro para la textura
+            
+            ctx.shadowColor = '#10b981';
+            ctx.shadowBlur = 8;
+            
+            bushes.forEach(bush => {
+                const x = bush.x * gridSize;
+                const y = bush.y * gridSize;
+
+                // 2a. Dibuja el cuadrado base del arbusto
+                ctx.fillStyle = BUSH_BASE_COLOR;
+                ctx.fillRect(x, y, gridSize, gridSize);
+
+                // 2b. Añadir textura (pequeños puntos aleatorios)
+                ctx.fillStyle = BUSH_TEXTURE_COLOR;
+                const textureCount = 10; // Número de puntos de textura para simular hojas
+                const dotSize = 2; // Tamaño del punto de textura
+
+                for (let i = 0; i < textureCount; i++) {
+                    // Posición aleatoria dentro del arbusto
+                    const dotX = x + Math.random() * (gridSize - dotSize);
+                    const dotY = y + Math.random() * (gridSize - dotSize);
+
+                    ctx.fillRect(dotX, dotY, dotSize, dotSize);
+                }
+                
+                // 2c. Dibuja el borde (Stroke)
+                ctx.strokeStyle = '#1a1a1a';
+                ctx.strokeRect(x, y, gridSize, gridSize);
+            });
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // 3. Dibujar la comida (roja)
+            ctx.fillStyle = 'red';
+            ctx.shadowColor = 'red';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize, gridSize);
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // 4. Dibujar la serpiente (cabeza triangular y cuerpo)
+            for (let i = 0; i < snake.length; i++) {
+                const x = snake[i].x * gridSize;
+                const y = snake[i].y * gridSize;
+                
+                // DIBUJO DE LA CABEZA (TRIANGULAR)
+                if (i === 0) {
+                    ctx.fillStyle = '#ccff00';
+                    ctx.shadowColor = '#ccff00';
+                    ctx.shadowBlur = 15;
+                    
+                    ctx.beginPath();
+                    
+                    // Define el triángulo basado en la dirección (xVelocity, yVelocity)
+                    if (xVelocity === 1) { // Derecha
+                        ctx.moveTo(x, y); // Esquina superior izquierda
+                        ctx.lineTo(x + gridSize, y + gridSize / 2); // Punta derecha
+                        ctx.lineTo(x, y + gridSize); // Esquina inferior izquierda
+                    } else if (xVelocity === -1) { // Izquierda
+                        ctx.moveTo(x + gridSize, y); // Esquina superior derecha
+                        ctx.lineTo(x, y + gridSize / 2); // Punta izquierda
+                        ctx.lineTo(x + gridSize, y + gridSize); // Esquina inferior derecha
+                    } else if (yVelocity === 1) { // Abajo
+                        ctx.moveTo(x, y); // Esquina superior izquierda
+                        ctx.lineTo(x + gridSize, y); // Esquina superior derecha
+                        ctx.lineTo(x + gridSize / 2, y + gridSize); // Punta abajo
+                    } else if (yVelocity === -1) { // Arriba
+                        ctx.moveTo(x, y + gridSize); // Esquina inferior izquierda
+                        ctx.lineTo(x + gridSize, y + gridSize); // Esquina inferior derecha
+                        ctx.lineTo(x + gridSize / 2, y); // Punta arriba
+                    } else {
+                        // Caso inicial (serpiente quieta antes del primer movimiento)
+                        ctx.rect(x, y, gridSize, gridSize);
+                    }
+
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                } else {
+                    // DIBUJO DEL CUERPO (Cuadrado normal)
+                    ctx.fillStyle = '#66cc33';
+                    ctx.shadowColor = '#66cc33';
+                    ctx.shadowBlur = 10;
+                    
+                    // Dibuja el segmento con un pequeño borde oscuro
+                    ctx.fillRect(x, y, gridSize, gridSize);
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.strokeRect(x, y, gridSize, gridSize);
+                }
+                
+                ctx.shadowBlur = 0; // Reset shadow
+            }
+        }
+
+        // --- Controles de Eventos ---
+
+        document.addEventListener('keydown', (e) => {
+            if (!isGameRunning) return;
+
+            // Evitar que la serpiente se mueva instantáneamente en la dirección opuesta
+            const goingUp = yVelocity === -1;
+            const goingDown = yVelocity === 1;
+            const goingLeft = xVelocity === -1;
+            const goingRight = xVelocity === 1;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    if (!goingDown) {
+                        xVelocity = 0;
+                        yVelocity = -1;
+                    }
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    if (!goingUp) {
+                        xVelocity = 0;
+                        yVelocity = 1;
+                    }
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    if (!goingRight) {
+                        xVelocity = -1;
+                        yVelocity = 0;
+                    }
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    if (!goingLeft) {
+                        xVelocity = 1;
+                        yVelocity = 0;
+                    }
+                    break;
+            }
+        });
+        
+        // --- Funciones de Modal ---
+        function showGameOverModal() {
+            gameOverModal.style.display = 'flex';
+        }
+        
+        function hideGameOverModal() {
+            gameOverModal.style.display = 'none';
+        }
+
+        // Inicia el juego al cargar la página
+        window.onload = startGame;
+
+    </script>
+</body>
+</html>
