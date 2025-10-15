@@ -6,7 +6,6 @@
     <title>Juego de la Serpiente</title>
     <style>
         /* Fuente y estilos generales */
-        /* Cambiamos a Inter, una fuente moderna y limpia */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         
         body {
@@ -16,9 +15,9 @@
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            background-color: #1a1a1a;
+            background-color: #0d0d1a; /* Fondo muy oscuro para el espacio */
             color: #ccff00; /* Color verde neón */
-            font-family: 'Inter', sans-serif; /* Usamos la fuente moderna */
+            font-family: 'Inter', sans-serif;
             padding: 20px;
         }
 
@@ -27,24 +26,25 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            border: 8px solid #60a5fa; /* Borde azul claro */
+            /* Nuevos colores para el espacio */
+            border: 8px solid #9333ea; /* Borde púrpura */
             border-radius: 10px;
-            box-shadow: 0 0 20px #60a5fa, 0 0 40px rgba(96, 165, 250, 0.5);
+            box-shadow: 0 0 20px #9333ea, 0 0 40px rgba(147, 51, 234, 0.5);
             background-color: #000000;
             padding: 20px;
         }
 
         /* Título */
         h1 {
-            font-weight: 900; /* Inter Black */
+            font-weight: 900;
             font-size: 32px;
             margin-bottom: 20px;
         }
 
         /* Pantalla de juego (Canvas) */
         canvas {
-            background-color: #1e3a8a; /* Fondo azul oscuro solicitado */
-            border: 3psolid #3b82f6; /* Borde azul */
+            background-color: #000000; /* Fondo negro para el espacio */
+            border: 3psolid #4f46e5; /* Borde azul profundo */
             margin-bottom: 20px;
             border-radius: 5px;
         }
@@ -56,7 +56,7 @@
             width: 100%;
             max-width: 400px;
             margin-bottom: 15px;
-            font-size: 16px; /* Aumentamos el tamaño para mejor lectura */
+            font-size: 16px;
             font-weight: 700;
         }
         
@@ -64,8 +64,7 @@
             padding: 8px 15px;
             background-color: #333333;
             border-radius: 5px;
-            border: 1px solid #60a5fa;
-            /* Le damos esquinas más redondeadas a los marcadores */
+            border: 1px solid #9333ea; /* Borde púrpura */
             border-radius: 8px;
         }
 
@@ -83,11 +82,11 @@
             color: #000000;
             border: none;
             padding: 12px 24px;
-            font-family: 'Inter', sans-serif; /* Usamos la fuente moderna */
+            font-family: 'Inter', sans-serif;
             font-weight: 700;
             font-size: 16px;
             cursor: pointer;
-            border-radius: 8px; /* Más redondeado */
+            border-radius: 8px;
             box-shadow: 0 4px #99cc00;
             transition: all 0.1s;
         }
@@ -105,7 +104,7 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.85);
-            display: none; /* Se oculta por defecto */
+            display: none;
             align-items: center;
             justify-content: center;
             z-index: 100;
@@ -140,7 +139,7 @@
 <body>
 
     <div class="game-container">
-        <h1>SNAKE 🐍</h1>
+        <h1>SNAKE CÓSMICA 🐍</h1>
         
         <div class="info-panel">
             <div class="score-display">Puntuación: <span id="score">0</span></div>
@@ -174,7 +173,7 @@
         
         let snake = [];
         let food = {};
-        let bushes = []; // Nuevo: Array para almacenar los obstáculos (arbustos)
+        let bushes = []; // Obstáculos (ahora son rocas/asteroides)
         let xVelocity = 0;
         let yVelocity = 0;
         let score = 0;
@@ -182,6 +181,10 @@
         let baseSpeed = 100; // Velocidad base en ms
         let currentSpeed = baseSpeed;
         let isGameRunning = false;
+        
+        // Variables para el fondo de estrellas
+        let stars = [];
+        const numStars = 100;
 
         // Referencias del DOM
         const scoreElement = document.getElementById('score');
@@ -191,14 +194,29 @@
 
         // --- Inicialización y Bucle del Juego ---
 
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < numStars; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 1.5,
+                    opacity: Math.random() * 0.5 + 0.5,
+                });
+            }
+        }
+
         function startGame() {
             // Reiniciar variables
-            snake = [{ x: 10, y: 10 }]; // La serpiente empieza en el centro
+            snake = [{ x: 10, y: 10 }]; 
             xVelocity = 0;
             yVelocity = 0;
             score = 0;
             currentSpeed = baseSpeed;
             isGameRunning = true;
+
+            // Inicializar estrellas
+            initStars();
 
             // Actualizar display
             scoreElement.textContent = score;
@@ -207,7 +225,7 @@
 
             // Generar comida inicial y obstáculos
             generateFood();
-            generateBushes(); // Nuevo: Generar arbustos
+            generateBushes();
 
             // Limpiar y configurar el intervalo del juego
             if (gameInterval) clearInterval(gameInterval);
@@ -220,24 +238,32 @@
             // 1. Mover la cabeza de la serpiente
             let head = { x: snake[0].x + xVelocity, y: snake[0].y + yVelocity };
 
-            // 2. Comprobar colisiones
+            // 2. Comprobar y manejar la TELETRANSPORTACIÓN en los bordes
+            if (head.x < 0) {
+                head.x = tileCount - 1; 
+            } else if (head.x >= tileCount) {
+                head.x = 0; 
+            } else if (head.y < 0) {
+                head.y = tileCount - 1; 
+            } else if (head.y >= tileCount) {
+                head.y = 0; 
+            }
+            
+            // 3. Comprobar colisiones después de la teletransportación
             if (
-                // Colisión con los bordes
-                head.x < 0 || head.x >= tileCount ||
-                head.y < 0 || head.y >= tileCount ||
                 // Colisión consigo misma
                 checkSelfCollision(head) ||
-                // Nuevo: Colisión con arbustos
+                // Colisión con rocas/asteroides
                 checkBushCollision(head) 
             ) {
                 endGame();
                 return;
             }
 
-            // 3. Insertar nueva cabeza
+            // 4. Insertar nueva cabeza
             snake.unshift(head);
 
-            // 4. Comprobar si come la comida
+            // 5. Comprobar si come la comida
             if (head.x === food.x && head.y === food.y) {
                 score++;
                 scoreElement.textContent = score;
@@ -248,13 +274,13 @@
                 snake.pop();
             }
 
-            // 5. Dibujar
+            // 6. Dibujar
             drawGame();
         }
 
         // --- Lógica del Juego ---
 
-        // Nuevo: Genera posiciones para los arbustos (obstáculos)
+        // Genera posiciones para las rocas/asteroides
         function generateBushes() {
             const numBushes = 8;
             bushes = [];
@@ -264,6 +290,7 @@
                 let isInvalidPosition;
                 do {
                     isInvalidPosition = false;
+                    
                     // Generar posición aleatoria
                     newBush = {
                         x: Math.floor(Math.random() * tileCount),
@@ -271,7 +298,7 @@
                     };
 
                     // Verificar que no se superponga con la serpiente inicial (o la comida)
-                    if (newBush.x === snake[0].x && newBush.y === snake[0].y) {
+                    if (snake.some(segment => segment.x === newBush.x && segment.y === newBush.y)) {
                         isInvalidPosition = true;
                         continue;
                     }
@@ -279,7 +306,7 @@
                          isInvalidPosition = true;
                         continue;
                     }
-                    // Verificar que no se superponga con otros arbustos ya generados
+                    // Verificar que no se superponga con otros obstáculos ya generados
                     if (bushes.some(bush => bush.x === newBush.x && bush.y === newBush.y)) {
                         isInvalidPosition = true;
                         continue;
@@ -287,11 +314,12 @@
 
                 } while (isInvalidPosition);
                 
+                // No necesita un tipo específico, ya que todos son rocas
                 bushes.push(newBush);
             }
         }
 
-        // Se usa para generar comida. Asegura que la comida no aparezca sobre la serpiente o un arbusto.
+        // Se usa para generar comida. Asegura que la comida no aparezca sobre la serpiente o un obstáculo.
         function generateFood() {
             let newFood;
             let isInvalidPosition;
@@ -310,7 +338,7 @@
                     continue;
                 }
                 
-                // Comprobar que no aparezca sobre un arbusto
+                // Comprobar que no aparezca sobre un obstáculo (roca)
                 if (bushes.some(bush => bush.x === newFood.x && bush.y === newFood.y)) {
                     isInvalidPosition = true;
                     continue;
@@ -331,7 +359,7 @@
             return false;
         }
         
-        // Nuevo: Comprueba si la cabeza de la serpiente colisiona con un arbusto
+        // Comprueba si la cabeza de la serpiente colisiona con un obstáculo (roca)
         function checkBushCollision(head) {
             return bushes.some(bush => head.x === bush.x && head.y === bush.y);
         }
@@ -365,84 +393,150 @@
         
         // --- Funciones de Dibujo ---
 
-        function drawGame() {
-            // 1. Limpiar la pantalla (FONDO AZUL)
-            ctx.fillStyle = '#1e3a8a';
+        // Función para dibujar el fondo de estrellas
+        function drawStars() {
+            ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 2. Dibujar los arbustos (OBSTÁCULOS VERDES con TEXTURA)
-            const BUSH_BASE_COLOR = '#059669'; // Verde oscuro/bosque
-            const BUSH_TEXTURE_COLOR = '#047857'; // Verde aún más oscuro para la textura
             
-            ctx.shadowColor = '#10b981';
+            stars.forEach(star => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+
+        // Función para dibujar la comida (objeto circular)
+        function drawFood(centerX, centerY, color, shadowColor, radius, stemColor = null) {
+            ctx.fillStyle = color;
+            ctx.shadowColor = shadowColor;
             ctx.shadowBlur = 8;
             
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            if (stemColor) {
+                 ctx.shadowBlur = 0; // Quitar sombra para el tallo
+                 ctx.fillStyle = stemColor;
+                 ctx.fillRect(centerX - 1, centerY - radius, 2, 3);
+            }
+        }
+        
+        // Función para dibujar una roca o asteroide (forma irregular gris)
+        function drawRock(x, y) {
+            // Color base y sombra de asteroide
+            ctx.fillStyle = '#6b7280'; // Gris
+            ctx.shadowColor = '#4b5563'; // Sombra más oscura
+            ctx.shadowBlur = 10;
+            
+            const cornerRadius = gridSize * 0.2;
+            
+            // Dibujar un cuadrado con esquinas redondeadas
+            ctx.beginPath();
+            ctx.moveTo(x + cornerRadius, y);
+            ctx.lineTo(x + gridSize - cornerRadius, y);
+            ctx.arcTo(x + gridSize, y, x + gridSize, y + cornerRadius, cornerRadius);
+            ctx.lineTo(x + gridSize, y + gridSize - cornerRadius);
+            ctx.arcTo(x + gridSize, y + gridSize, x + gridSize - cornerRadius, y + gridSize, cornerRadius);
+            ctx.lineTo(x + cornerRadius, y + gridSize);
+            ctx.arcTo(x, y + gridSize, x, y + gridSize - cornerRadius, cornerRadius);
+            ctx.lineTo(x, y + cornerRadius);
+            ctx.arcTo(x, y, x + cornerRadius, y, cornerRadius);
+            ctx.closePath();
+            ctx.fill();
+
+            // Detalles de la textura (manchas y cráteres)
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#4b5563'; 
+            ctx.beginPath();
+            ctx.arc(x + gridSize * 0.3, y + gridSize * 0.3, gridSize * 0.1, 0, Math.PI * 2);
+            ctx.arc(x + gridSize * 0.7, y + gridSize * 0.6, gridSize * 0.15, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+
+        function drawGame() {
+            // 1. Dibujar el fondo espacial (Limpia y dibuja estrellas)
+            drawStars();
+
+            // 2. Dibujar los obstáculos (ROCAS / ASTEROIDES)
             bushes.forEach(bush => {
                 const x = bush.x * gridSize;
                 const y = bush.y * gridSize;
-
-                // 2a. Dibuja el cuadrado base del arbusto
-                ctx.fillStyle = BUSH_BASE_COLOR;
-                ctx.fillRect(x, y, gridSize, gridSize);
-
-                // 2b. Añadir textura (pequeños puntos aleatorios)
-                ctx.fillStyle = BUSH_TEXTURE_COLOR;
-                const textureCount = 10; // Número de puntos de textura para simular hojas
-                const dotSize = 2; // Tamaño del punto de textura
-
-                for (let i = 0; i < textureCount; i++) {
-                    // Posición aleatoria dentro del arbusto
-                    const dotX = x + Math.random() * (gridSize - dotSize);
-                    const dotY = y + Math.random() * (gridSize - dotSize);
-
-                    ctx.fillRect(dotX, dotY, dotSize, dotSize);
-                }
                 
-                // 2c. Dibuja el borde (Stroke)
-                ctx.strokeStyle = '#1a1a1a';
-                ctx.strokeRect(x, y, gridSize, gridSize);
+                // Usamos la función para dibujar la roca/asteroide
+                drawRock(x, y);
             });
             ctx.shadowBlur = 0; // Reset shadow
 
-            // 3. Dibujar la comida (roja)
-            ctx.fillStyle = 'red';
-            ctx.shadowColor = 'red';
-            ctx.shadowBlur = 10;
-            ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize, gridSize);
+            // 3. Dibujar la comida (Energía espacial)
+            const FoodRadius = gridSize * 0.45;
+            const FoodCenterX = food.x * gridSize + gridSize / 2;
+            const FoodCenterY = food.y * gridSize + gridSize / 2;
+
+            drawFood(FoodCenterX, FoodCenterY, 'red', 'red', FoodRadius, '#4CAF50'); // Rojo brillante
             ctx.shadowBlur = 0; // Reset shadow
 
-            // 4. Dibujar la serpiente (cabeza triangular y cuerpo)
+
+            // 4. Dibujar la serpiente (nave espacial y módulos de cuerpo)
             for (let i = 0; i < snake.length; i++) {
                 const x = snake[i].x * gridSize;
                 const y = snake[i].y * gridSize;
                 
-                // DIBUJO DE LA CABEZA (TRIANGULAR)
+                // DIBUJO DE LA CABEZA (NAVE ESPACIAL)
                 if (i === 0) {
-                    ctx.fillStyle = '#ccff00';
-                    ctx.shadowColor = '#ccff00';
+                    const halfGrid = gridSize / 2;
+                    const quarterGrid = gridSize / 4;
+                    
+                    // 1. Dibujar el Empuje/Thruster (Atrás de la nave)
+                    ctx.fillStyle = 'rgba(255, 136, 0, 0.8)'; // Fuego naranja/amarillo
+                    ctx.shadowColor = '#FF8800';
+                    ctx.shadowBlur = 10;
+                    
+                    // Dibuja el efecto de propulsión fuera de la rejilla de la nave
+                    if (xVelocity === 1) { // Derecha
+                        ctx.fillRect(x - halfGrid, y + quarterGrid, halfGrid, halfGrid);
+                    } else if (xVelocity === -1) { // Izquierda
+                        ctx.fillRect(x + gridSize, y + quarterGrid, halfGrid, halfGrid);
+                    } else if (yVelocity === 1) { // Abajo
+                        ctx.fillRect(x + quarterGrid, y - halfGrid, halfGrid, halfGrid);
+                    } else if (yVelocity === -1) { // Arriba
+                        ctx.fillRect(x + quarterGrid, y + gridSize, halfGrid, halfGrid);
+                    }
+                    
+                    // 2. Dibujar el Cuerpo Principal de la Nave (Rectangular - Verde brillante)
+                    ctx.fillStyle = '#ccff00'; // Color principal de la nave
+                    ctx.shadowColor = '#00BFFF'; // Brillo azul de escudo
                     ctx.shadowBlur = 15;
+                    ctx.fillRect(x, y, gridSize, gridSize);
+                    
+                    // 3. Dibujar la Nariz/Cabina (Triangular, más oscura, para darle forma de punta)
+                    ctx.fillStyle = '#1e3a8a'; // Azul oscuro para la cabina
+                    ctx.shadowBlur = 0; // Quitar el brillo del nose
                     
                     ctx.beginPath();
                     
-                    // Define el triángulo basado en la dirección (xVelocity, yVelocity)
+                    // Dibujo de la punta de la nave (Nariz/Cabina) según la dirección
                     if (xVelocity === 1) { // Derecha
-                        ctx.moveTo(x, y); // Esquina superior izquierda
-                        ctx.lineTo(x + gridSize, y + gridSize / 2); // Punta derecha
-                        ctx.lineTo(x, y + gridSize); // Esquina inferior izquierda
+                        ctx.moveTo(x + gridSize, y); 
+                        ctx.lineTo(x + gridSize, y + gridSize); 
+                        ctx.lineTo(x + halfGrid, y + halfGrid); 
                     } else if (xVelocity === -1) { // Izquierda
-                        ctx.moveTo(x + gridSize, y); // Esquina superior derecha
-                        ctx.lineTo(x, y + gridSize / 2); // Punta izquierda
-                        ctx.lineTo(x + gridSize, y + gridSize); // Esquina inferior derecha
+                        ctx.moveTo(x, y); 
+                        ctx.lineTo(x, y + gridSize); 
+                        ctx.lineTo(x + halfGrid, y + halfGrid); 
                     } else if (yVelocity === 1) { // Abajo
-                        ctx.moveTo(x, y); // Esquina superior izquierda
-                        ctx.lineTo(x + gridSize, y); // Esquina superior derecha
-                        ctx.lineTo(x + gridSize / 2, y + gridSize); // Punta abajo
+                        ctx.moveTo(x, y + gridSize); 
+                        ctx.lineTo(x + gridSize, y + gridSize); 
+                        ctx.lineTo(x + halfGrid, y + halfGrid); 
                     } else if (yVelocity === -1) { // Arriba
-                        ctx.moveTo(x, y + gridSize); // Esquina inferior izquierda
-                        ctx.lineTo(x + gridSize, y + gridSize); // Esquina inferior derecha
-                        ctx.lineTo(x + gridSize / 2, y); // Punta arriba
+                        ctx.moveTo(x, y); 
+                        ctx.lineTo(x + gridSize, y); 
+                        ctx.lineTo(x + halfGrid, y + halfGrid); 
                     } else {
-                        // Caso inicial (serpiente quieta antes del primer movimiento)
+                        // Caso inicial (nave quieta antes del primer movimiento)
                         ctx.rect(x, y, gridSize, gridSize);
                     }
 
@@ -450,18 +544,18 @@
                     ctx.fill();
                     
                 } else {
-                    // DIBUJO DEL CUERPO (Cuadrado normal)
-                    ctx.fillStyle = '#66cc33';
+                    // DIBUJO DEL CUERPO (Vagones o Módulos Conectados)
+                    ctx.fillStyle = '#66cc33'; // Módulos del mismo color que la serpiente original
                     ctx.shadowColor = '#66cc33';
-                    ctx.shadowBlur = 10;
+                    ctx.shadowBlur = 8;
                     
-                    // Dibuja el segmento con un pequeño borde oscuro
-                    ctx.fillRect(x, y, gridSize, gridSize);
+                    // Dibuja el segmento con un pequeño margen para separarlo visualmente
+                    ctx.fillRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
                     ctx.strokeStyle = '#1a1a1a';
-                    ctx.strokeRect(x, y, gridSize, gridSize);
+                    ctx.strokeRect(x + 2, y + 2, gridSize - 4, gridSize - 4);
                 }
                 
-                ctx.shadowBlur = 0; // Reset shadow
+                ctx.shadowBlur = 0; // Reset shadow para el siguiente elemento
             }
         }
 
@@ -527,3 +621,4 @@
     </script>
 </body>
 </html>
+
